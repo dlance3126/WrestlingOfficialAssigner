@@ -73,7 +73,12 @@ def _is_official_available(official: Official, event: Event) -> bool:
 
 
 def _eligible_officials(db: Session, event: Event) -> List[Official]:
-    officials = db.query(Official).order_by(Official.tier.asc()).all()
+    officials = (
+        db.query(Official)
+        .filter(Official.area == event.area)
+        .order_by(Official.tier.asc())
+        .all()
+    )
     return [official for official in officials if _is_official_available(official, event)]
 
 
@@ -119,9 +124,12 @@ def assign_event(db: Session, event: Event) -> Tuple[List[int], str]:
     return assigned_ids, "Assigned per policy"
 
 
-def run_all_assignments(db: Session) -> List[Tuple[int, List[int], str]]:
+def run_all_assignments(db: Session, area: Optional[str] = None) -> List[Tuple[int, List[int], str]]:
     results: List[Tuple[int, List[int], str]] = []
-    events = db.query(Event).order_by(Event.starts_at.asc()).all()
+    query = db.query(Event)
+    if area is not None:
+        query = query.filter(Event.area == area)
+    events = query.order_by(Event.starts_at.asc()).all()
     for event in events:
         assigned_ids, reason = assign_event(db, event)
         event.officials = [db.get(Official, official_id) for official_id in assigned_ids]

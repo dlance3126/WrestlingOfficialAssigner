@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from database import get_session
 from models import User
+from schemas import AREA_CHOICES
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -26,16 +27,25 @@ COOKIE_OPTIONS = dict(
 
 
 @router.post("/register")
-def register(email: str, password: str, db: Session = Depends(get_session)):
+def register(email: str, password: str, area: str, db: Session = Depends(get_session)):
     existing = db.query(User).filter(User.email == email).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    user = User(email=email, hashed_password=pwd_context.hash(password), is_admin=True)
+    normalized_area = area.strip()
+    if normalized_area not in AREA_CHOICES:
+        raise HTTPException(status_code=400, detail="Invalid area selection")
+
+    user = User(
+        email=email,
+        hashed_password=pwd_ctx.hash(password),
+        is_admin=True,
+        area=normalized_area,
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
-    return {"id": user.id, "email": user.email}
+    return {"id": user.id, "email": user.email, "area": user.area}
 
 
 @router.post("/login")

@@ -44,7 +44,7 @@ app.include_router(auth_router)
 
 
 def _serialize_team(team: Team) -> TeamOut:
-    return TeamOut(id=team.id, name=team.name, tier=team.tier)
+    return TeamOut(id=team.id, name=team.name, tier=team.tier, area=team.area)
 
 
 def _serialize_official(official: Official) -> OfficialOut:
@@ -55,6 +55,7 @@ def _serialize_official(official: Official) -> OfficialOut:
         name=official.name,
         tier=official.tier,
         unavailable_dates=dates,
+        area=official.area,
     )
 
 
@@ -70,6 +71,7 @@ def _serialize_event(event: Event) -> EventOut:
         ends_at=event.ends_at,
         officials_needed=event.officials_needed,
         officials=[official.id for official in event.officials],
+        area=event.area,
     )
 
 
@@ -79,10 +81,15 @@ def create_team(
     db: Session = Depends(get_session),
     user=Depends(get_current_user),
 ):
-    existing = db.query(Team).filter(Team.name == team.name).first()
+    normalized_name = team.name.strip()
+    existing = (
+        db.query(Team)
+        .filter(Team.name == normalized_name, Team.area == user.area)
+        .first()
+    )
     if existing:
         raise HTTPException(status_code=400, detail="Team name already exists")
-    db_team = Team(name=team.name.strip(), tier=team.tier)
+    db_team = Team(name=normalized_name, tier=team.tier, area=user.area)
     db.add(db_team)
     db.commit()
     db.refresh(db_team)
@@ -91,7 +98,12 @@ def create_team(
 
 @app.get("/teams", response_model=List[TeamOut])
 def list_teams(db: Session = Depends(get_session), user=Depends(get_current_user)):
-    teams = db.query(Team).order_by(Team.name.asc()).all()
+    teams = (
+        db.query(Team)
+        .filter(Team.area == user.area)
+        .order_by(Team.name.asc())
+        .all()
+    )
     return [_serialize_team(team) for team in teams]
 
 
@@ -106,15 +118,19 @@ def update_team(
     if not db_team:
         raise HTTPException(status_code=404, detail="Team not found")
 
+    if db_team.area != user.area:
+        raise HTTPException(status_code=403, detail="Not authorized for this team")
+
+    normalized_name = team.name.strip()
     duplicate = (
         db.query(Team)
-        .filter(Team.id != team_id, Team.name == team.name.strip())
+        .filter(Team.id != team_id, Team.name == normalized_name, Team.area == user.area)
         .first()
     )
     if duplicate:
         raise HTTPException(status_code=400, detail="Team name already exists")
 
-    db_team.name = team.name.strip()
+    db_team.name = normalized_name
     db_team.tier = team.tier
     db.add(db_team)
     db.commit()
@@ -131,6 +147,8 @@ def delete_team(
     db_team = db.get(Team, team_id)
     if not db_team:
         raise HTTPException(status_code=404, detail="Team not found")
+    if db_team.area != user.area:
+        raise HTTPException(status_code=403, detail="Not authorized for this team")
     db.delete(db_team)
     db.commit()
     return {"ok": True}
@@ -142,14 +160,20 @@ def create_official(
     db: Session = Depends(get_session),
     user=Depends(get_current_user),
 ):
-    existing = db.query(Official).filter(Official.name == official.name).first()
+    normalized_name = official.name.strip()
+    existing = (
+        db.query(Official)
+        .filter(Official.name == normalized_name, Official.area == user.area)
+        .first()
+    )
     if existing:
         raise HTTPException(status_code=400, detail="Official name already exists")
     dates = ",".join(official.unavailable_dates or [])
     db_official = Official(
-        name=official.name.strip(),
+        name=normalized_name,
         tier=official.tier,
         unavailable_dates=dates,
+        area=user.area,
     )
     db.add(db_official)
     db.commit()
@@ -162,7 +186,12 @@ def list_officials(
     db: Session = Depends(get_session),
     user=Depends(get_current_user),
 ):
-    officials = db.query(Official).order_by(Official.tier.asc(), Official.name.asc()).all()
+    officials = (
+        db.query(Official)
+        .filter(Official.area == user.area)
+        .order_by(Official.tier.asc(), Official.name.asc())
+        .all()
+    )
     return [_serialize_official(official) for official in officials]
 
 
@@ -177,15 +206,19 @@ def update_official(
     if not db_official:
         raise HTTPException(status_code=404, detail="Official not found")
 
+    if db_official.area != user.area:
+        raise HTTPException(status_code=403, detail="Not authorized for this official")
+
+    normalized_name = official.name.strip()
     duplicate = (
         db.query(Official)
-        .filter(Official.id != official_id, Official.name == official.name.strip())
+        .filter(Official.id != official_id, Official.name == normalized_name, Official.area == user.area)
         .first()
     )
     if duplicate:
         raise HTTPException(status_code=400, detail="Official name already exists")
 
-    db_official.name = official.name.strip()
+    db_official.name = normalized_name
     db_official.tier = official.tier
     db_official.unavailable_dates = ",".join(official.unavailable_dates or [])
     db.add(db_official)
@@ -203,6 +236,8 @@ def delete_official(
     db_official = db.get(Official, official_id)
     if not db_official:
         raise HTTPException(status_code=404, detail="Official not found")
+    if db_official.area != user.area:
+        raise HTTPException(status_code=403, detail="Not authorized for this official")
     db.delete(db_official)
     db.commit()
     return {"ok": True}
@@ -213,12 +248,14 @@ def _validate_event_window(starts_at: datetime, ends_at: datetime) -> None:
         raise HTTPException(status_code=400, detail="Event end must be after start")
 
 
-def _load_teams(db: Session, team_ids: list[int]) -> list[Team]:
+def _load_teams(db: Session, team_ids: list[int], area: str) -> list[Team]:
     teams: list[Team] = []
     for team_id in team_ids:
         team = db.get(Team, team_id)
         if not team:
             raise HTTPException(status_code=400, detail=f"Team {team_id} not found")
+        if team.area != area:
+            raise HTTPException(status_code=400, detail="Teams must belong to your area")
         teams.append(team)
     return teams
 
@@ -245,7 +282,7 @@ def create_event(
     user=Depends(get_current_user),
 ):
     _validate_event_window(event.starts_at, event.ends_at)
-    teams = _load_teams(db, event.team_ids)
+    teams = _load_teams(db, event.team_ids, user.area)
     _validate_event_teams(event, teams)
 
     try:
@@ -264,6 +301,7 @@ def create_event(
         starts_at=event.starts_at,
         ends_at=event.ends_at,
         officials_needed=event.officials_needed,
+        area=user.area,
     )
     db_event.teams = teams
     db.add(db_event)
@@ -279,6 +317,7 @@ def list_events(
 ):
     events = (
         db.query(Event)
+        .filter(Event.area == user.area)
         .order_by(Event.starts_at.asc())
         .all()
     )
@@ -295,9 +334,11 @@ def update_event(
     db_event = db.get(Event, event_id)
     if not db_event:
         raise HTTPException(status_code=404, detail="Event not found")
+    if db_event.area != user.area:
+        raise HTTPException(status_code=403, detail="Not authorized for this event")
 
     _validate_event_window(event.starts_at, event.ends_at)
-    teams = _load_teams(db, event.team_ids)
+    teams = _load_teams(db, event.team_ids, user.area)
     _validate_event_teams(event, teams)
 
     try:
@@ -332,6 +373,8 @@ def delete_event(
     db_event = db.get(Event, event_id)
     if not db_event:
         raise HTTPException(status_code=404, detail="Event not found")
+    if db_event.area != user.area:
+        raise HTTPException(status_code=403, detail="Not authorized for this event")
     db.delete(db_event)
     db.commit()
     return {"ok": True}
@@ -343,7 +386,7 @@ def run_assignments(
     user=Depends(get_current_user),
 ):
     results: List[AssignmentResult] = []
-    for event_id, official_ids, reason in run_all_assignments(db):
+    for event_id, official_ids, reason in run_all_assignments(db, area=user.area):
         results.append(
             AssignmentResult(
                 event_id=event_id,

@@ -78,7 +78,10 @@ Daily Use
 Creating Your Account
 ---------------------
 - The login page shows default values (`admin@example.com`, `changeme`).
+- Select your **Area** (Area 1, Area 2, Area 3, Area 4, Area 5, Area 6/8, Area 7, Area 9, Area 10).
 - Click **Register admin** once to create yourself; then press **Login**.
+- Every account only sees the teams, officials, and events for its own area, so two
+  coordinators in different areas never mix data.
 - Your session is stored in a secure cookie, so the browser will stay logged in
   until you press **Logout** or close the servers.
 
@@ -107,6 +110,14 @@ Whenever you schedule an event from the Assigner tab:
   the Events tab.
 - Press **Run assignments** to have the backend fill official slots according to the
   tier policy; results display inline and in the schedule panel.
+
+Areas & Data Sharing
+--------------------
+- Each user belongs to a single Area (Area 1, Area 2, Area 3, Area 4, Area 5,
+  Area 6/8, Area 7, Area 9, Area 10). Pick the correct one when registering.
+- All data—teams, officials, events, assignment runs—is automatically scoped to the
+  current user’s Area. Users in the same Area collaborate on the same dataset; users
+  in other Areas cannot see or modify it.
 
 Tips & Troubleshooting
 ----------------------

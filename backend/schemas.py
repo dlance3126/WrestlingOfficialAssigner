@@ -4,6 +4,19 @@ from typing import List, Optional, Literal
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
+AREA_CHOICES = [
+    "Area 1",
+    "Area 2",
+    "Area 3",
+    "Area 4",
+    "Area 5",
+    "Area 6/8",
+    "Area 7",
+    "Area 9",
+    "Area 10",
+]
+
+
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
@@ -13,6 +26,7 @@ class UserOut(BaseModel):
     id: int
     email: EmailStr
     is_admin: bool
+    area: str
 
     class Config:
         from_attributes = True
@@ -30,8 +44,11 @@ class TeamIn(BaseModel):
         return value
 
 
-class TeamOut(TeamIn):
+class TeamOut(BaseModel):
     id: int
+    name: str
+    tier: int
+    area: str
 
     class Config:
         from_attributes = True
@@ -55,6 +72,7 @@ class OfficialOut(BaseModel):
     name: str
     tier: int
     unavailable_dates: List[str]
+    area: str
 
     class Config:
         from_attributes = True
@@ -93,6 +111,7 @@ class EventOut(BaseModel):
     ends_at: datetime
     officials_needed: int
     officials: List[int]
+    area: str
 
     class Config:
         from_attributes = True

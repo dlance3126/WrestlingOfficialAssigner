@@ -5,6 +5,7 @@ import * as XLSX from 'xlsx'
 import './app.css'
 
 const API = import.meta.env.VITE_API || 'http://localhost:8000'
+const AREA_OPTIONS = ['Area 1', 'Area 2', 'Area 3', 'Area 4', 'Area 5', 'Area 6/8', 'Area 7', 'Area 9', 'Area 10']
 
 function useAuthedFetch() {
   return async (path, opts = {}) => {
@@ -26,8 +27,9 @@ function useAuthedFetch() {
 }
 
 function Login({ onLoggedIn }) {
-  const [email, setEmail] = useState('admin@example.com')
-  const [password, setPassword] = useState('changeme')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [area, setArea] = useState(AREA_OPTIONS[0])
   const [loading, setLoading] = useState(false)
 
   const submit = async (e) => {
@@ -53,7 +55,7 @@ function Login({ onLoggedIn }) {
     setLoading(true)
     try {
       const res = await fetch(
-        `${API}/auth/register?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`,
+        `${API}/auth/register?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}&area=${encodeURIComponent(area)}`,
         { method: 'POST', credentials: 'include' }
       )
       if (!res.ok) throw new Error('Register failed')
@@ -82,6 +84,16 @@ function Login({ onLoggedIn }) {
           onChange={(e) => setPassword(e.target.value)}
         />
         <div className='form-row' style={{ justifyContent: 'space-between' }}>
+          <label style={{ flex: 1 }}>
+            Area
+            <select value={area} onChange={(e) => setArea(e.target.value)}>
+              {AREA_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </label>
           <button className='button button-primary' type='submit' disabled={loading}>
             {loading ? 'Working…' : 'Login'}
           </button>

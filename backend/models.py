@@ -29,6 +29,7 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     hashed_password: Mapped[str] = mapped_column(String(255))
     is_admin: Mapped[bool] = mapped_column(Boolean, default=True)
+    area: Mapped[str] = mapped_column(String(20))
 
 
 class Team(Base):
@@ -37,6 +38,7 @@ class Team(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     tier: Mapped[int] = mapped_column(Integer)
+    area: Mapped[str] = mapped_column(String(20))
 
     events = relationship(
         "Event",
@@ -52,6 +54,7 @@ class Official(Base):
     name: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     tier: Mapped[int] = mapped_column(Integer)
     unavailable_dates: Mapped[str] = mapped_column(String(2048), default="")
+    area: Mapped[str] = mapped_column(String(20))
 
     events = relationship(
         "Event",
@@ -70,6 +73,7 @@ class Event(Base):
     starts_at: Mapped[datetime] = mapped_column(DateTime)
     ends_at: Mapped[datetime] = mapped_column(DateTime)
     officials_needed: Mapped[int] = mapped_column(Integer, default=1)
+    area: Mapped[str] = mapped_column(String(20))
 
     officials = relationship(
         "Official",
