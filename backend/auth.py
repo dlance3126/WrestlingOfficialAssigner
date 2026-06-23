@@ -38,7 +38,7 @@ def register(email: str, password: str, area: str, db: Session = Depends(get_ses
 
     user = User(
         email=email,
-        hashed_password=pwd_ctx.hash(password),
+        hashed_password=pwd_context.hash(password),
         is_admin=True,
         area=normalized_area,
     )
